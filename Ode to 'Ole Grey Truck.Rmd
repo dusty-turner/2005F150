@@ -1,0 +1,133 @@
+---
+title: "Ode to 'Ole Grey Truck'"
+author: "Dusty"
+date: "8/26/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, eval = TRUE)
+```
+
+## A Tribute!
+
+Since the dawn of time, people have been developing human-like attachments to their transportation.  I imagine Moses naming his chariot, Noah his ark, and maybe even Jesus naming his borrowed donkey.
+
+Well, maybe I'm taking too much historical liscence, but man's affinity for their transportation remains.  
+
+At the age of 21, my dad and I split the cost of a 2005 Ford F150.  The odometer read ~24,000 miles and it set us back ~$20,000.  
+
+I've been with this truck for 14 years - longer than I've known my wife.  Its been with me from Texas to New York to Georgia to Missouri to Hawaii to Missouri to New Mexico to Ohio to New York to Virginia.  Tragically, on the drive from New York to Virginia, the engine developed a tremendous rattling noise and a violent shake.  Unbeknownst to me, it developed an oil leak sometime in the summer of '19 and the 70 mph roads were too much for it to handle.  Just short of its 200,000th mile I laid it to rests in Fairfax Station, Virginia.  It lived long enough to meet its successor, Ole Grey Truck II.  
+
+The following is a (toungue-in-cheek) R style ode to my old friend.  Long live ol grey!
+
+<!-- [imageofoldtruck.png] -->
+
+## Data
+
+The data I'll explore is available [here](www.github.com/dusty-turner).   I made an earlier version of this blog post [here](www.dusty-turner/netlify.com/oldpost) where I looked at some similar, but incomplete, analysis on this data.
+
+I'll use the following packages to load, manipulate, and view the data.
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(skimr)
+library(kableExtra)
+```
+
+```{r include=FALSE}
+truck = read_csv("FordF150.csv") %>% select(-Notes)
+```
+
+Below, you'll notice that the observational unit is each time I filled up the pick-up.  The column headers are pretty self explanitory.  To be explicit, the `Location` is the location that I lived at the time of filling up the tank.  
+
+```{r}
+head(truck)
+```
+
+Thanks to `readr`, most of the columns read in appropraitly.  However, it looks like we'll need to make an adustment so that the dates are the correct class.  Thanks `lubridate`!
+
+```{r}
+truck = 
+truck %>%
+  mutate(FillUpDate = dmy(FillUpDate),
+         FinishTankDate = dmy(FinishTankDate))
+head(truck)
+```
+
+Using the nifty `skim` function we can glean some other information about my history with 'ol grey.
+
+```{r, results='asis'}
+skim(truck) %>% kable(format = "markdown")
+```
+
+### Fun Descriptive Stats
+
+We see that I more or less owned the truck from Feb of 06 through July of 2019.  I filled it up 433 times and drove it unitl it his 193,497 miles.... so close!
+
+The average miles per gallon was 15.6 and I even attained 25ish one time.  The least was 8.4.  I likely was pulling my wife's car on a trailer on that tank.  
+
+Looks like I usually drove about 333 miles on a tank.  I put as few at ~80 and as much as 799.  Must have been the time a buddy filled it up and didn't tell me :).
+
+While it ony has a 34 gallong tank, the max gallons added to the truck was 39.4.  This is likely due to times when friends borrowed the truck and put in a few gallons for me and didn't note it in my log.  I compensated for it by adding it to the next fill up.  
+
+How many times did this happen?
+
+```{r}
+truck %>%
+  select(Gallons) %>%
+  filter(Gallons>34) 
+```
+
+Lets look at these histograms a little closer.
+
+```{r}
+truck %>%
+  gather(Measurement, Value, -FillUpDate, -FinishTankDate, -Location) %>%
+  filter(Measurement != "TotalMiles") %>%
+  ggplot(aes(x=Value)) +
+  geom_histogram() +
+  facet_wrap(~Measurement, scales = "free_x") +
+  labs(x="", y = "Number of Occurances (Fill Ups)", title = "Frequency of Occurance for Each Fill Up")
+```
+
+It looks like gallons and tank miles (unsurprisingly) are right scewed as they generally have a cap on the upper end with a few exceptions.  Miles per gallon looks more normally distributed with a few more occurances of lower miles per gallon.    
+
+### Fun Stratified Stats
+
+Lets see how well my truck performed in each location.
+
+```{r}
+library(formattable)
+truck %>% 
+  select(TankMiles,Gallons,MPG,Location) %>%
+  group_by(Location) %>%
+  summarise_all(.funs = mean, na.rm = TRUE) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  mutate(MPG = cell_spec(MPG, "html", color = ifelse(MPG == max(MPG), "red", ifelse(MPG== min(MPG), "blue", "black")))) %>%
+  mutate(TankMiles = cell_spec(TankMiles, "html", color = ifelse(TankMiles == max(TankMiles), "red", ifelse(TankMiles== min(TankMiles), "blue", "black")))) %>%
+  mutate(Gallons = cell_spec(Gallons, "html", color = ifelse(Gallons == max(Gallons), "red", ifelse(Gallons== min(Gallons), "blue", "black")))) %>%
+   kable(format = "html", escape = F, align = "l") %>%
+  kable_styling("striped", full_width = F)
+```
+
+This chart shows some highlights some intersting points.  
+
+First, the top miles per gallon I did a ton of highway driving here.  
+
+My top miles per tank and gallons per fill up were from Ohio. I would drive my truck till it was almost empty because I could get free 30 gallon tank fill ups from our local grocery store.  
+
+The worse miles per gallon is Virginia.  Well, since I only had two fill ups and they were both after I essentially killed the truck, this is no suprise.  
+
+The worse miles per tank and gallons per fill up were in Texas when my dad still possed the truck (and likely didn't live as close to the edge as I did.)
+
+```{r}
+truck %>% 
+  group_by(Location) %>%
+  summarise(Arrive_Location = min(FillUpDate),
+            Leave_Location = max(FillUpDate)) %>%
+  arrange(Arrive_Location) %>%
+  mutate(DaysInLocation = Leave_Location-Arrive_Location)
+```
+
