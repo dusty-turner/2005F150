@@ -1,0 +1,70 @@
+---
+title: "Python_in_R"
+author: "Dusty Turner"
+date: "8/29/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(reticulate)
+```
+
+
+```{python}
+import numpy as np
+my_python_array = np.array([2,4,6,8])
+for item in my_python_array:
+    print(item)
+    
+
+import requests
+
+league_id = 1314476
+year = 2018
+url = "https://fantasy.espn.com/apis/v3/games/ffl/leagueHistory/" + \
+      str(league_id) + "?seasonId=" + str(year)
+url = "http://fantasy.espn.com/apis/v3/games/ffl/seasons/2018/segments/0/leagues/1314476?view=mDraftDetail&view=mLiveScoring&view=mMatchupScore&view=mPendingTransactions&view=mPositionalRatings&view=mSettings&view=mTeam&view=modular&view=mNav"
+url = "http://fantasy.espn.com/apis/v3/games/ffl/seasons/2019/segments/0/leagues/89417258?view=mDraftDetail&view=mLiveScoring&view=mMatchupScore&view=mPendingTransactions&view=mPositionalRatings&view=mSettings&view=mTeam&view=modular&view=mNav&view=mMatchupScore"
+url = "http://fantasy.espn.com/apis/v3/games/ffl/seasons/2018/segments/0/leagues/1314476?view=mMatchupScore"
+
+r = requests.get(url)
+# d = r.json()[0]    
+d = r.json()    
+
+r = requests.get(url, params={"view": "mMatchup"})
+r.json()
+
+df = [[
+        game['matchupPeriodId'],
+        game['home']['teamId'], game['home']['totalPoints'],
+        game['away']['teamId'], game['away']['totalPoints']
+    ] for game in d['schedule']]
+df = pd.DataFrame(df, columns=['Week', 'Team1', 'Score1', 'Team2', 'Score2'])
+df['Type'] = ['Regular' if w<=14 else 'Playoff' for w in df['Week']]
+df.head()
+```
+
+```{r}
+library(httpuv)
+library(XML)
+
+library(stringr)
+library(DT)
+
+library(jsonlite)
+library(httr)
+library(tidyverse)
+
+py$d %>% fromJSON
+py$d$schedule[[2]]$home$teamId
+py$d$schedule[[2]]$away$teamId
+py$d$schedule[[1]]$away$teamId
+py$d$teams[[1]]$points
+```
+
+
+
