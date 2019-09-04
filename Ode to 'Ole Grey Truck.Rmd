@@ -64,13 +64,15 @@ skim(truck) %>% kable(format = "markdown")
 
 ### Fun Descriptive Stats
 
-We see that I more or less owned the truck from Feb of 06 through July of 2019.  I filled it up 433 times and drove it unitl it his 193,497 miles.... so close!
+There are a handfull of 'fun' descriptive statistics from the data.
 
-The average miles per gallon was 15.6 and I even attained 25ish one time.  The least was 8.4.  I likely was pulling my wife's car on a trailer on that tank.  
+- We see that I more or less owned the truck from Feb of 06 through July of 2019.  I filled it up 433 times and drove it unitl it his 193,497 miles.... so close!
 
-Looks like I usually drove about 333 miles on a tank.  I put as few at ~80 and as much as 799.  Must have been the time a buddy filled it up and didn't tell me :).
+- The average miles per gallon was 15.6 and I even attained 25ish one time.  The least was 8.4.  I likely was pulling my wife's car on a trailer on that tank.  
 
-While it ony has a 34 gallong tank, the max gallons added to the truck was 39.4.  This is likely due to times when friends borrowed the truck and put in a few gallons for me and didn't note it in my log.  I compensated for it by adding it to the next fill up.  
+- Looks like I usually drove about 333 miles on a tank.  I put as few at ~80 and as much as 799.  Must have been the time a buddy filled it up and didn't tell me :).
+
+- While it ony has a 34 gallong tank, the max gallons added to the truck was 39.4.  This is likely due to times when friends borrowed the truck and put in a few gallons for me and didn't note it in my log.  I compensated for it by adding it to the next fill up.  
 
 How many times did this happen?
 
@@ -80,7 +82,7 @@ truck %>%
   filter(Gallons>34) 
 ```
 
-Lets look at these histograms a little closer.
+Lets look at the spread of the data a little closer.
 
 ```{r}
 truck %>%
@@ -112,22 +114,85 @@ truck %>%
   kable_styling("striped", full_width = F)
 ```
 
-This chart shows some highlights some intersting points.  
+This chart shows highlights some intersting points.  
 
-First, the top miles per gallon I did a ton of highway driving here.  
+- First, I did a ton of highway driving to attain the best miles per gallon.  
 
-My top miles per tank and gallons per fill up were from Ohio. I would drive my truck till it was almost empty because I could get free 30 gallon tank fill ups from our local grocery store.  
+- My top miles per tank and gallons per fill up were from Ohio. I would drive my truck till it was almost empty because I could get free 30 gallon tank fill ups from our local grocery store.  
 
-The worse miles per gallon is Virginia.  Well, since I only had two fill ups and they were both after I essentially killed the truck, this is no suprise.  
+- The worse miles per gallon is Virginia.  Well, since I only had two fill ups and they were both after I essentially killed the truck, this is no suprise.  
 
-The worse miles per tank and gallons per fill up were in Texas when my dad still possed the truck (and likely didn't live as close to the edge as I did.)
+- The worse miles per tank and gallons per fill up were in Texas when my dad still possed the truck (and likely didn't live as close to the edge as I did.)
+
+### Time Spent in Each Location
+
+How much time did I spend in each location?  How many miles did I drive at each place?
 
 ```{r}
 truck %>% 
   group_by(Location) %>%
   summarise(Arrive_Location = min(FillUpDate),
-            Leave_Location = max(FillUpDate)) %>%
+            Leave_Location = max(FillUpDate),
+            MilesDriven = round(max(TotalMiles)-min(TotalMiles))) %>%
   arrange(Arrive_Location) %>%
-  mutate(DaysInLocation = Leave_Location-Arrive_Location)
+  mutate(DaysInLocation = Leave_Location-Arrive_Location,
+         MilesPerDay = round(MilesDriven/as.numeric(DaysInLocation))) %>%
+  DT::datatable()
+```
+
+Interesting Notes:
+
+- It appears, unsuprisingly, I spent the most time and drove the most miles in Hawaii.  That's lots of miles going around in circles.  
+- What is suprising about Hawaii, is that I somehow managed 42 miles per day on the island.  I put about 32 miles a day going to work and back, so I must have been doing some good weekend sightseeing.  This even spans a 4 month deployment.  
+- The most miles per day was spent in Georgia.  I think I drove to Texas 3 times during my almost 2 months.  
+- I clearly didn't drive that much either time I was in NY.  The first time was when I was a cadet.  Those 21 miles per day even includes the transit to Georgia (with a pit stop in Texas), so I was doing a good job of studying instead of traveling.The second time was when I was a faculty member.  Since my wife had the primary family vehicle, I'm still wondering how I achieved 12 miles per day.  
+
+
+```{r}
+truck %>% 
+  group_by(Location) %>%
+  summarise(Arrive_Location = min(FillUpDate),
+            Leave_Location = max(FillUpDate),
+            MilesDriven = round(max(TotalMiles)-min(TotalMiles))) %>%
+  arrange(Arrive_Location) %>%
+  mutate(DaysInLocation = Leave_Location-Arrive_Location,
+         MilesPerDay = round(MilesDriven/as.numeric(DaysInLocation)),
+         DaysInLocation = as.numeric(DaysInLocation)) %>%
+  gather(Attribute, Measurement, -Location, -Arrive_Location, -Leave_Location) %>% 
+  group_by(Attribute) %>%
+  mutate(order = rank(Measurement)) %>% 
+  # ggplot(aes(x=Location,y=Measurement)) +
+  ggplot(aes(x=drlib::reorder_within(Location,-order,Measurement),y=Measurement)) +
+  geom_col(aes(fill = Location)) +
+  drlib::scale_x_reordered() +
+  facet_wrap(~Attribute, scales = "free") +
+  labs(title = "Miles Driven in Each Location", x = "Location", y = "Miles Driven") +
+  coord_flip() +
+  theme(legend.position = "none")
+```
+
+A picture (graph) is worth 1000 words.
+
+### Rate of Miles Over Time
+
+```{r}
+truck %>%
+  ggplot(aes(x=FillUpDate,y=TotalMiles,color = Location) ) +
+  geom_point() +
+  geom_line() +
+  scale_x_date(breaks = "year",labels = scales::date_format("%Y")) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title = "Miles Added Over Time", x = "Fill Up Date", y = "Total Miles")
+  
+```
+
+From this plot, you can see several take aways:
+
+- There was a time when I was really racking up the miles.  Hawaii through Ohio was a prosperous time for the 'ol truck.  But if you notice, there's a clear inflection point in Ohio where things start dropping off.  This was when in December of 15 when we bought my wife's car.  In hindsight, it was the beginning of the end :)  
+- There is also a clear drop off in the rate of fill ups in NY.  
+- There are also 4 periods of times with no fill ups.  Two of them were on either side of Hawaii while my truck was getting shipped.  The other two are both my deployments -- with one fill up mid deployment while in New Mexico.  Thanks Jill!
+
+```{r}
+
 ```
 
