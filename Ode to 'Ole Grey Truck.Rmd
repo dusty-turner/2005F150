@@ -19,7 +19,7 @@ At the age of 21, my dad and I split the cost of a 2005 Ford F150.  The odometer
 
 I've been with this truck for 14 years - longer than I've known my wife.  Its been with me from Texas to New York to Georgia to Missouri to Hawaii to Missouri to New Mexico to Ohio to New York to Virginia.  Tragically, on the drive from New York to Virginia, the engine developed a tremendous rattling noise and a violent shake.  Unbeknownst to me, it developed an oil leak sometime in the summer of '19 and the 70 mph roads were too much for it to handle.  Just short of its 200,000th mile I laid it to rests in Fairfax Station, Virginia.  It lived long enough to meet its successor, Ole Grey Truck II.  
 
-The following is a (toungue-in-cheek) R style ode to my old friend.  Long live ol grey!
+The following is a (toungue-in-cheek) R style ode to my old friend.  Long live Ole Grey!
 
 <!-- [imageofoldtruck.png] -->
 
@@ -40,7 +40,18 @@ library(kableExtra)
 truck = read_csv("FordF150.csv") %>% select(-Notes)
 ```
 
-Below, you'll notice that the observational unit is each time I filled up the pick-up.  The column headers are pretty self explanitory.  To be explicit, the `Location` is the location that I lived at the time of filling up the tank.  
+Below, you'll notice that the observational unit is each time I filled up the pick-up.  The column headers are pretty self explanitory.  
+
+To be explicit, here is a description of the data:
+
+- `FillUpDate`: Date I filled up the pick up with gasoline.
+- `TotalMiles`: Odometer reading when I filled up the tank.
+- `TankMiles`: Trip odometer reading for the most recent tank of gas.  Reset every 'fill up.'
+- `Gallons`: Gallons of gasoline put in the tank at time of fill up.
+- `MPG`: Calculated miles per gallon on the previous tank of gas.  `TankMikes/Gallons`
+- `FinishTankDate`: Date of previous fill up.
+- `Location` is the location that I lived at the time of filling up the tank.  
+
 
 ```{r}
 head(truck)
@@ -59,10 +70,11 @@ head(truck)
 Using the nifty `skim` function we can glean some other information about my history with 'ol grey.
 
 ```{r, results='asis'}
-skim(truck) %>% kable(format = "markdown")
+# skim(truck) %>% kable(format = "markdown")
+# skim(truck) 
 ```
 
-### Fun Descriptive Stats
+## Fun Descriptive Stats
 
 There are a handfull of 'fun' descriptive statistics from the data.
 
@@ -82,7 +94,7 @@ truck %>%
   filter(Gallons>34) 
 ```
 
-Lets look at the spread of the data a little closer.
+Lets look at the spread of the data a little closer to get a feel for the distribution of gallons per fill up, miles per gallon, and miles per tank of gas.
 
 ```{r}
 truck %>%
@@ -94,7 +106,7 @@ truck %>%
   labs(x="", y = "Number of Occurances (Fill Ups)", title = "Frequency of Occurance for Each Fill Up")
 ```
 
-It looks like gallons and tank miles (unsurprisingly) are right scewed as they generally have a cap on the upper end with a few exceptions.  Miles per gallon looks more normally distributed with a few more occurances of lower miles per gallon.    
+It looks like gallons and miles per tank of gas (unsurprisingly) are right scewed as factors have a cap on the upper end (with a few exceptions when friends fill up and don't tell me).  Miles per gallon looks more normally distributed with a few more occurances of fewer miles per gallon.  
 
 ### Fun Stratified Stats
 
@@ -116,13 +128,13 @@ truck %>%
 
 This chart shows highlights some intersting points.  
 
-- First, I did a ton of highway driving to attain the best miles per gallon.  
+- First, I did a ton of highway driving while I lived in Georgia to attain the best miles per gallon.  
 
-- My top miles per tank and gallons per fill up were from Ohio. I would drive my truck till it was almost empty because I could get free 30 gallon tank fill ups from our local grocery store.  
+- My topaverage miles per tank and average gallons per fill up were from Ohio. I would drive my truck till it was almost empty because I could get free 30 gallons of gasoline based off of money spent at our local grocery store.  
 
 - The worse miles per gallon is Virginia.  Well, since I only had two fill ups and they were both after I essentially killed the truck, this is no suprise.  
 
-- The worse miles per tank and gallons per fill up were in Texas when my dad still possed the truck (and likely didn't live as close to the edge as I did.)
+- The worse miles per tank and gallons per fill up were in Texas when my dad still possessed the truck (and doesn't live as close to the edge as I do).
 
 ### Time Spent in Each Location
 
@@ -137,16 +149,17 @@ truck %>%
   arrange(Arrive_Location) %>%
   mutate(DaysInLocation = Leave_Location-Arrive_Location,
          MilesPerDay = round(MilesDriven/as.numeric(DaysInLocation))) %>%
-  DT::datatable()
+  DT::datatable(options = list(paging = FALSE))
 ```
 
 Interesting Notes:
 
 - It appears, unsuprisingly, I spent the most time and drove the most miles in Hawaii.  That's lots of miles going around in circles.  
-- What is suprising about Hawaii, is that I somehow managed 42 miles per day on the island.  I put about 32 miles a day going to work and back, so I must have been doing some good weekend sightseeing.  This even spans a 4 month deployment.  
-- The most miles per day was spent in Georgia.  I think I drove to Texas 3 times during my almost 2 months.  
+- What is suprising about Hawaii? I somehow managed 42 miles per day on the island.  I put about 32 miles a day going to work and back, so I must have been doing some good weekend sightseeing.  This even spans a 4 month deployment.  
+- The most miles per day was spent in Georgia.  I think I drove to Texas 3 times during my almost 2 months living there.    
 - I clearly didn't drive that much either time I was in NY.  The first time was when I was a cadet.  Those 21 miles per day even includes the transit to Georgia (with a pit stop in Texas), so I was doing a good job of studying instead of traveling.The second time was when I was a faculty member.  Since my wife had the primary family vehicle, I'm still wondering how I achieved 12 miles per day.  
 
+Lets look at this visually.
 
 ```{r}
 truck %>% 
@@ -168,7 +181,7 @@ truck %>%
   facet_wrap(~Attribute, scales = "free") +
   labs(title = "Miles Driven in Each Location", x = "Location", y = "Miles Driven") +
   coord_flip() +
-  theme(legend.position = "none")
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 A picture (graph) is worth 1000 words.
@@ -183,16 +196,72 @@ truck %>%
   scale_x_date(breaks = "year",labels = scales::date_format("%Y")) +
   scale_y_continuous(labels = scales::comma) +
   labs(title = "Miles Added Over Time", x = "Fill Up Date", y = "Total Miles")
-  
+
 ```
 
 From this plot, you can see several take aways:
 
-- There was a time when I was really racking up the miles.  Hawaii through Ohio was a prosperous time for the 'ol truck.  But if you notice, there's a clear inflection point in Ohio where things start dropping off.  This was when in December of 15 when we bought my wife's car.  In hindsight, it was the beginning of the end :)  
+- There was a time when I was really racking up the miles.  Hawaii through Ohio was a prosperous time for the ol truck.  But if you notice, there's a clear inflection point in Ohio where things start dropping off.  This was when in December of 15 when we bought my wife's car.  In hindsight, it was the beginning of the end  :)
 - There is also a clear drop off in the rate of fill ups in NY.  
 - There are also 4 periods of times with no fill ups.  Two of them were on either side of Hawaii while my truck was getting shipped.  The other two are both my deployments -- with one fill up mid deployment while in New Mexico.  Thanks Jill!
 
-```{r}
+### More Gas on Certain Days?
 
+I also wonder if I happen to have filled up the tank more often on one day than another.
+
+```{r}
+truck %>%
+  mutate(Weekday = weekdays(FillUpDate)) %>%
+  select(TankMiles,Location,Weekday,FillUpDate) %>%
+  # select(-FillUpDate,-FinishTankDate) %>%
+  # gather(Measurement, Value, -Weekday, -Location) %>%
+  ggplot(aes(x=fct_relevel(Weekday, c("Sunday","Monday","Tuesday","Wednesday","Thursday")))) +
+  geom_bar() +
+  labs(x="Day of Week", y = "Number of Fillups", title = "What Day Did I Fill The Pick Up On The Most") +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+```
+
+The barchart indicates that I might fill up more on Friday than any other day.  I wonder if Location impacts the day I fill up? 
+
+```{r}
+truck %>%
+  mutate(Weekday = weekdays(FillUpDate)) %>%
+  select(TankMiles,Location,Weekday,FillUpDate) %>%
+  # select(-FillUpDate,-FinishTankDate) %>%
+  # gather(Measurement, Value, -Weekday, -Location) %>%
+  ggplot(aes(x=fct_relevel(Weekday, c("Sunday","Monday","Tuesday","Wednesday","Thursday")))) +
+  geom_bar() +
+  labs(x="Day of Week", y = "Number of Fillups", title = "What Day Did I Fill The Pick Up On The Most")  +
+  facet_wrap(~forcats::fct_reorder(Location,FillUpDate)) + 
+  theme(legend.position = "none", axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+It does appea Friday still leads, but evidence is less strong and I do not know exactly what to make of this.  Lets turn to a statistical test to help determine if what we are seeing could be explained by chance or if there really is something to this.
+
+```{r}
+fisher =
+truck %>%
+  mutate(Weekday = weekdays(FillUpDate)) %>%
+  select(Location, Weekday) %>%
+  count(Location, Weekday) %>%
+  spread(Weekday, n) %>%
+  replace(is.na(.), 0)  
+
+fisher
+
+fisher %>%
+  select(-Location) %>% 
+  fisher.test(simulate.p.value = TRUE)
+
+fisher %>% 
+  select(-Location) %>% 
+  chisq.test()
+
+
+fisher %>% 
+  select(-Location) %>%
+  as.matrix() %>%
+  as.table() %>%  
+  RVAideMemoire::fisher.multcomp() 
 ```
 
