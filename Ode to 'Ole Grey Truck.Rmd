@@ -1,5 +1,5 @@
 ---
-title: "Ode to 'Ole Grey Truck'"
+title: "Ode to Ole Grey Truck'"
 author: "Dusty"
 date: "8/26/2019"
 output: html_document
@@ -67,7 +67,7 @@ truck %>%
 head(truck)
 ```
 
-Using the nifty `skim` function we can glean some other information about my history with 'ol grey.
+Using the nifty `skim` function we can glean some other information about my history with ol grey.
 
 ```{r, results='asis'}
 # skim(truck) %>% kable(format = "markdown")
@@ -200,12 +200,12 @@ truck %>%
 ```
 
 From this plot, you can see several take aways:
-
-- There was a time when I was really racking up the miles.  Hawaii through Ohio was a prosperous time for the ol truck.  But if you notice, there's a clear inflection point in Ohio where things start dropping off.  This was when in December of 15 when we bought my wife's car.  In hindsight, it was the beginning of the end  :)
+  
+- There was a time when I was really racking up the miles. Hawaii through Ohio was a prosperous time for the ol truck.  But if you notice, there's a clear inflection point in Ohio where things start dropping off after we bought a new family car.
 - There is also a clear drop off in the rate of fill ups in NY.  
-- There are also 4 periods of times with no fill ups.  Two of them were on either side of Hawaii while my truck was getting shipped.  The other two are both my deployments -- with one fill up mid deployment while in New Mexico.  Thanks Jill!
-
-### More Gas on Certain Days?
+- There are also 4 periods of times with no fill ups.  Two of them were on either side of Hawaii while my truck was getting shipped.  The other two are both my deployments; with one fill up mid deployment while in New Mexico.  Thanks Jill!
+  
+### More Gas on Certain Days
 
 I also wonder if I happen to have filled up the tank more often on one day than another.
 
@@ -221,47 +221,30 @@ truck %>%
   theme(legend.position = "none", axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
 ```
 
-The barchart indicates that I might fill up more on Friday than any other day.  I wonder if Location impacts the day I fill up? 
 
-```{r}
-truck %>%
-  mutate(Weekday = weekdays(FillUpDate)) %>%
-  select(TankMiles,Location,Weekday,FillUpDate) %>%
-  # select(-FillUpDate,-FinishTankDate) %>%
-  # gather(Measurement, Value, -Weekday, -Location) %>%
-  ggplot(aes(x=fct_relevel(Weekday, c("Sunday","Monday","Tuesday","Wednesday","Thursday")))) +
-  geom_bar() +
-  labs(x="Day of Week", y = "Number of Fillups", title = "What Day Did I Fill The Pick Up On The Most")  +
-  facet_wrap(~forcats::fct_reorder(Location,FillUpDate)) + 
-  theme(legend.position = "none", axis.text.x = element_text(angle = 90, hjust = 1))
-```
+The barchart indicates that I might fill up more on Friday than any other day.  
 
-It does appea Friday still leads, but evidence is less strong and I do not know exactly what to make of this.  Lets turn to a statistical test to help determine if what we are seeing could be explained by chance or if there really is something to this.
+Lets look at a few statistical tests to see if `Weekday` impacts fillups.
 
 ```{r}
 fisher =
-truck %>%
+  truck %>%
   mutate(Weekday = weekdays(FillUpDate)) %>%
-  select(Location, Weekday) %>%
-  count(Location, Weekday) %>%
-  spread(Weekday, n) %>%
-  replace(is.na(.), 0)  
+  select(Weekday) %>%
+  count(Weekday, name = "DaysFilledUp") %>%
+  left_join(
+    tibble(
+      date = seq(ymd(min(truck$FillUpDate)), ymd(max(truck$FillUpDate)), by = '1 day')) %>%
+      mutate(Weekday = weekdays(date))  %>%
+      count(Weekday, name = "Total")) %>%
+  mutate(DaysNotFilledUp = Total-DaysFilledUp) %>%
+  select(-Total)
 
-fisher
-
-fisher %>%
-  select(-Location) %>% 
-  fisher.test(simulate.p.value = TRUE)
-
-fisher %>% 
-  select(-Location) %>% 
-  chisq.test()
-
-
-fisher %>% 
-  select(-Location) %>%
-  as.matrix() %>%
-  as.table() %>%  
-  RVAideMemoire::fisher.multcomp() 
+fisher 
 ```
 
+The table above shows how many times I filled up with gas on each day of the week and how many days I had the opportunity to fill up and did not.  Essentially the question we are asking is: Is there something about Day of the Week which would impact whether or not I filled up with gas?  Equivalently, is there something about filling up (or not) that impacts the day of the week?  AKA: Are day of the week and fill ups independent?
+  
+  Lets turn to several statistical tests.
+
+If you are old school the $\chi^2$ test.
