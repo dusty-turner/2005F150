@@ -25,7 +25,7 @@ The following is a (toungue-in-cheek) R style ode to my old friend.  Long live O
 
 ## Data
 
-The data I'll explore is available [here](www.github.com/dusty-turner).   I made an earlier version of this blog post [here](www.dusty-turner/netlify.com/oldpost) where I looked at some similar, but incomplete, analysis on this data.
+I'll explore the following [data](www.github.com/dusty-turner).   I made an earlier version of this blog post [here](www.dusty-turner/netlify.com/oldpost) where I looked at some similar, but incomplete, analysis on this data.
 
 I'll use the following packages to load, manipulate, and view the data.
 
@@ -50,7 +50,7 @@ To be explicit, here is a description of the data:
 - `Gallons`: Gallons of gasoline put in the tank at time of fill up.
 - `MPG`: Calculated miles per gallon on the previous tank of gas.  `TankMikes/Gallons`
 - `FinishTankDate`: Date of previous fill up.
-- `Location` is the location that I lived at the time of filling up the tank.  
+- `Location`: is the location that I lived at the time of filling up the tank.  
 
 
 ```{r}
@@ -67,16 +67,22 @@ truck %>%
 head(truck)
 ```
 
-Using the nifty `skim` function we can glean some other information about my history with ol grey.
+<!-- Using the nifty `skim` function we can glean some other information about my history with ol grey. -->
 
-```{r, results='asis'}
-# skim(truck) %>% kable(format = "markdown")
-# skim(truck) 
-```
+<!-- ```{r, results='asis'} -->
+<!-- skim(truck) %>% -->
+<!--   skimr::kable(format = "latex") -->
+<!-- # skimr:: (truck) -->
+<!-- ``` -->
 
 ## Fun Descriptive Stats
 
 There are a handfull of 'fun' descriptive statistics from the data.
+
+```{r}
+summary(truck)
+```
+
 
 - We see that I more or less owned the truck from Feb of 06 through July of 2019.  I filled it up 433 times and drove it unitl it his 193,497 miles.... so close!
 
@@ -205,7 +211,7 @@ From this plot, you can see several take aways:
 - There is also a clear drop off in the rate of fill ups in NY.  
 - There are also 4 periods of times with no fill ups.  Two of them were on either side of Hawaii while my truck was getting shipped.  The other two are both my deployments; with one fill up mid deployment while in New Mexico.  Thanks Jill!
   
-### More Gas on Certain Days
+### More Gas on Certain Days?
 
 I also wonder if I happen to have filled up the tank more often on one day than another.
 
@@ -217,7 +223,7 @@ truck %>%
   # gather(Measurement, Value, -Weekday, -Location) %>%
   ggplot(aes(x=fct_relevel(Weekday, c("Sunday","Monday","Tuesday","Wednesday","Thursday")))) +
   geom_bar() +
-  labs(x="Day of Week", y = "Number of Fillups", title = "What Day Did I Fill The Pick Up On The Most") +
+  labs(x="Day of Week", y = "Number of Fillups", title = "What Day Did I Fill Up The Most?") +
   theme(legend.position = "none", axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
 ```
 
@@ -245,6 +251,46 @@ fisher
 
 The table above shows how many times I filled up with gas on each day of the week and how many days I had the opportunity to fill up and did not.  Essentially the question we are asking is: Is there something about Day of the Week which would impact whether or not I filled up with gas?  Equivalently, is there something about filling up (or not) that impacts the day of the week?  AKA: Are day of the week and fill ups independent?
   
-  Lets turn to several statistical tests.
+Lets turn to several statistical tests.
 
-If you are old school the $\chi^2$ test.
+If you are old school: The $\chi^2$ test.
+
+```{r}
+fisher %>%
+  select(-Weekday) %>%
+  chisq.test()
+```
+
+Since the null hypothesis is that there is no difference between day of week and fill up or not (also known as independence), the P Value is high so we 'fail to reject' this.  We conclude that there's no difference between day of week and decision to fill up or not.  We could also say that the probability that they came from the same distribution is fairly high (.5134) therefore we do not have much evidence to say that they are different.
+
+If you are new school, you turn to fisher's exact test.  Essentially, we if we lock in the amount of 'fill ups' over the time I owned the pick up and were to calculate every possible combination of days of which I could fill up with gas (eg, all on Monday, all but one on Monday and one on Tuesday, and so on), how extreme see what we saw.  Fisher figured out that we could calculate that exact probabily - and hence we have Fisher's Exact Test.
+
+```{r}
+fisher %>%
+  select(-Weekday) %>%
+  fisher.test(workspace = 1000000)
+```
+
+It turns out that there is a 53.11% chance that we'd see what happened more more extreme by chance.  I dare say that there is no relationship between day of week and the decision to fill up with gas.  
+
+### Heatmap of Fill Ups
+
+The map below shows dates in which I filled up my truck with gasoline.  The darker green indicates more gallons -- the lighter indicates fewer gallons.  The dark dates mean I did not fill up with gasoline on that date.  
+
+```{r}
+truck %>%
+  complete(FillUpDate = seq.Date(min(FillUpDate), max(FillUpDate), by="day")) %>%
+  mutate(monthweek = week(FillUpDate)) %>%
+  mutate(Weekday = weekdays(FillUpDate)) %>%
+  mutate(year = year(FillUpDate)) %>%
+  mutate(month = month(FillUpDate)) %>% 
+  group_by(month) %>%
+  mutate(monthweek = monthweek - min(monthweek)) %>%
+  ggplot(aes(y=monthweek,x=fct_relevel(Weekday, c("Sunday","Monday","Tuesday","Wednesday","Thursday")), fill = Gallons)) +
+  geom_tile(color = "white") +
+  facet_grid(year~month, scales = "free") +
+  scale_fill_gradient(low="white", high="green", na.value = "black") +  
+  labs(x = "Weekday", y = "Week of Month", title = "Time-Series Calendar Heatmap: Amount of Gas Pumped on Each Day", caption = "Days with no gas are denoted in White") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = -0), axis.text.y = element_blank(), axis.ticks.y = element_blank()) 
+```
+
