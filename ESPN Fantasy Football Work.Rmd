@@ -1,0 +1,147 @@
+---
+title: "Fantasy Football"
+author: "Dusty Turner"
+date: "9/3/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+### gets and parses player data
+
+```{r include=FALSE}
+library(tidyverse)
+base = "http://fantasy.espn.com/apis/v3/games/ffl/seasons/"
+year = "2019"
+mid = "/segments/0/leagues/"
+leagueID = "89417258"
+tail = "?view=mMatchup&view=mMatchupScore"
+url = paste0(base,year,mid,leagueID,tail)
+ESPNGet <- httr::GET(url = url)
+ESPNGet$status_code
+ESPNRaw <- rawToChar(ESPNGet$content)
+ESPNFromJSON <- jsonlite::fromJSON(ESPNRaw)
+ESPNFromJSON %>% listviewer::jsonedit()
+# jsonlite::write_json(ESPNFromJSON,"SmallURLWeek1.JSON")
+```
+
+
+
+```{r}
+# ESPNFromJSON$draftDetail
+# ESPNFromJSON$schedule$away$rosterForCurrentScoringPeriod$entries
+# ESPNFromJSON$teams
+# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$id
+# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$fullName
+# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$stats
+# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$id
+
+## ESPNFromJSON$teams$roster$appliedStatTotal ???
+
+# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$stats %>%
+#   map(magrittr::extract,c("scoringPeriodId","seasonId","statSourceId", "statSplitTypeId","id","appliedTotal"))
+
+
+
+## players on rosters
+players = 
+ESPNFromJSON$teams$roster$entries %>% map("playerPoolEntry") %>% map("player") %>%
+  map_df(magrittr::extract,c("id","fullName","defaultPositionId")) %>%
+  mutate(id = as.character(id))
+
+## number of rows of stats for each player
+observations = 
+ESPNFromJSON$teams$roster$entries %>% map("playerPoolEntry") %>% map("player") %>% map("stats")  %>% 
+  flatten() %>% map_df(~count(.)) 
+
+playervec = 
+players %>%
+  mutate(observations = observations$n) %>%
+  uncount(observations)
+
+PositionDF = 
+  tibble(PositionId = c(1,2,3,4,5,16),
+         Position = c("Quarterback","Running Back","Wide Receiver","Tight End","Kicker","Defense"))
+
+## projections and results for players withnames
+playerperformance = 
+ESPNFromJSON$teams$roster$entries %>% map("playerPoolEntry") %>% map("player") %>% map("stats")  %>% 
+  flatten() %>% 
+    map_df(magrittr::extract,c("scoringPeriodId","seasonId","statSourceId", "statSplitTypeId","id","externalId", "appliedTotal")) %>%
+  mutate(Player = playervec$fullName) %>% 
+  mutate(PositionId = playervec$defaultPositionId) %>% 
+  left_join(PositionDF) 
+  # filter(seasonId == 2019) 
+  # as_tibble()  
+  # write_csv("FF.csv")
+
+playerperformance %>% arrange(desc(externalId))
+  filter(nchar(externalId)>5)
+
+```
+
+## gets team names and records
+
+```{r}
+library(tidyverse)
+base = "http://fantasy.espn.com/apis/v3/games/ffl/seasons/"
+year = "2019"
+mid = "/segments/0/leagues/"
+# leagueID = "89417258"
+leagueID = "89417258"
+tail = "?view=mDraftDetail&view=mLiveScoring&view=mMatchupScore&view=mPendingTransactions&view=mPositionalRatings&view=mSettings&view=mTeam&view=modular&view=mNav&view=mMatchupScore&scoringPeriodId=1"
+url = paste0(base,year,mid,leagueID,tail)
+ESPNGet <- httr::GET(url = url)
+ESPNGet$status_code
+ESPNRaw <- rawToChar(ESPNGet$content)
+ESPNFromJSON2 <- jsonlite::fromJSON(ESPNRaw)
+ESPNFromJSON2 %>% listviewer::jsonedit()
+# jsonlite::write_json(ESPNFromJSON2,"BigURLWeek1.JSON")
+```
+
+
+
+
+```{r}
+ESPNFromJSON2 %>% listviewer::jsonedit()
+ESPNFromJSON2$teams %>% map_df(magrittr::extract,c(""))
+
+
+TeamPlayers = 
+ESPNFromJSON$teams$roster$entries %>% map("playerPoolEntry") %>%
+  map_df(~count(.)) 
+
+PlayerTeamDF = 
+ESPNFromJSON2$teams %>% select(location, nickname,id) %>%
+  unite(Team, c(location,nickname)) %>%
+  mutate(TeamPlayers = TeamPlayers$n) %>% 
+  uncount(TeamPlayers) %>%
+  mutate(Player = playerperformance$Player %>% unique()) %>%
+  select(-id)
+
+PlayerPerformance = 
+playerperformance %>%
+  left_join(PlayerTeamDF, by = "Player") %>%
+  as_tibble()
+
+
+WeeklyEstimates = 
+PlayerPerformance %>% 
+  filter(nchar(externalId) > 4) %>%
+  mutate(statSourceId = if_else(statSourceId==1, "Predicted", "Actual")) %>%
+  select(scoringPeriodId,statSourceId,appliedTotal,Player,Position,Team) %>%
+  spread(statSourceId, appliedTotal) %>% arrange(Player) %>%
+  filter(!is.na(Actual)) %>%
+  mutate(ActualMinusPredicted = Actual-Predicted) 
+
+WeeklyEstimates %>%
+  arrange(-ActualMinusPredicted) %>%
+  group_by(Team) %>%
+  summarise(MeanDiff = mean(ActualMinusPredicted))
+
+```
+
+
+
