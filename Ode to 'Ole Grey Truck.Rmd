@@ -136,7 +136,7 @@ This chart shows highlights some intersting points.
 
 - First, I did a ton of highway driving while I lived in Georgia to attain the best miles per gallon.  
 
-- My topaverage miles per tank and average gallons per fill up were from Ohio. I would drive my truck till it was almost empty because I could get free 30 gallons of gasoline based off of money spent at our local grocery store.  
+- My top average miles per tank and average gallons per fill up were from Ohio. I would drive my truck till it was almost empty because I could get free 30 gallons of gasoline based off of money spent at our local grocery store.  
 
 - The worse miles per gallon is Virginia.  Well, since I only had two fill ups and they were both after I essentially killed the truck, this is no suprise.  
 
@@ -263,7 +263,7 @@ fisher %>%
 
 Since the null hypothesis is that there is no difference between day of week and fill up or not (also known as independence), the P Value is high so we 'fail to reject' this.  We conclude that there's no difference between day of week and decision to fill up or not.  We could also say that the probability that they came from the same distribution is fairly high (.5134) therefore we do not have much evidence to say that they are different.
 
-If you are new school, you turn to fisher's exact test.  Essentially, we if we lock in the amount of 'fill ups' over the time I owned the pick up and were to calculate every possible combination of days of which I could fill up with gas (eg, all on Monday, all but one on Monday and one on Tuesday, and so on), how extreme see what we saw.  Fisher figured out that we could calculate that exact probabily - and hence we have Fisher's Exact Test.
+If you are new school, you turn to Fisher's Exact Test.  Essentially, if we lock in the amount of 'fill ups' over the time I owned the pick up and were to calculate every possible combination of days of which I could fill up with gas (eg, all on Monday, all but one on Monday and one on Tuesday, and so on), how extreme is what we saw.  Fisher figured out that we could calculate that exact probabily - and hence we have Fisher's Exact Test.
 
 ```{r}
 fisher %>%
@@ -271,7 +271,7 @@ fisher %>%
   fisher.test(workspace = 1000000)
 ```
 
-It turns out that there is a 53.11% chance that we'd see what happened more more extreme by chance.  I dare say that there is no relationship between day of week and the decision to fill up with gas.  
+It turns out that there is a 53.11% chance that we'd see what happened or see something more extreme by chance.  I dare say that there is no relationship between day of week and the decision to fill up with gas.  
 
 ### Heatmap of Fill Ups
 
@@ -294,3 +294,10 @@ truck %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = -0), axis.text.y = element_blank(), axis.ticks.y = element_blank()) 
 ```
 
+I'll admit, its hard to glean anything from this heatmap.... But I spent a lot of work creating it so I'm going to leave it.  
+
+# Feedback welcome
+
+As always, I do this blog to learn new things, hopefully teach others from my experience, and hopefully receive (respectful and helpful) feedback.  
+
+Please leave your thoughts below!!

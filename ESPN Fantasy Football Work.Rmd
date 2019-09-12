@@ -23,28 +23,13 @@ ESPNGet <- httr::GET(url = url)
 ESPNGet$status_code
 ESPNRaw <- rawToChar(ESPNGet$content)
 ESPNFromJSON <- jsonlite::fromJSON(ESPNRaw)
-ESPNFromJSON %>% listviewer::jsonedit()
+# ESPNFromJSON %>% listviewer::jsonedit()
 # jsonlite::write_json(ESPNFromJSON,"SmallURLWeek1.JSON")
 ```
 
 
 
 ```{r}
-# ESPNFromJSON$draftDetail
-# ESPNFromJSON$schedule$away$rosterForCurrentScoringPeriod$entries
-# ESPNFromJSON$teams
-# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$id
-# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$fullName
-# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$stats
-# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$id
-
-## ESPNFromJSON$teams$roster$appliedStatTotal ???
-
-# ESPNFromJSON$teams$roster$entries[[1]]$playerPoolEntry$player$stats %>%
-#   map(magrittr::extract,c("scoringPeriodId","seasonId","statSourceId", "statSplitTypeId","id","appliedTotal"))
-
-
-
 ## players on rosters
 players = 
 ESPNFromJSON$teams$roster$entries %>% map("playerPoolEntry") %>% map("player") %>%
@@ -77,7 +62,7 @@ ESPNFromJSON$teams$roster$entries %>% map("playerPoolEntry") %>% map("player") %
   # as_tibble()  
   # write_csv("FF.csv")
 
-playerperformance %>% arrange(desc(externalId))
+playerperformance %>% arrange(desc(externalId)) %>% as_tibble() %>%
   filter(nchar(externalId)>5)
 
 ```
@@ -86,44 +71,66 @@ playerperformance %>% arrange(desc(externalId))
 
 ```{r}
 library(tidyverse)
+
+PlayerTeamDF = NULL
+
+for (i in 1:2) {
+  
 base = "http://fantasy.espn.com/apis/v3/games/ffl/seasons/"
 year = "2019"
 mid = "/segments/0/leagues/"
-# leagueID = "89417258"
 leagueID = "89417258"
-tail = "?view=mDraftDetail&view=mLiveScoring&view=mMatchupScore&view=mPendingTransactions&view=mPositionalRatings&view=mSettings&view=mTeam&view=modular&view=mNav&view=mMatchupScore&scoringPeriodId=1"
-url = paste0(base,year,mid,leagueID,tail)
+tail10 = "?view=mMatchup&view=mMatchupScore&scoringPeriodId="
+tail = "?view=mDraftDetail&view=mLiveScoring&view=mMatchupScore&view=mPendingTransactions&view=mPositionalRatings&view=mSettings&view=mTeam&view=modular&view=mNav&view=mMatchupScore&scoringPeriodId="
+url = paste0(base,year,mid,leagueID,tail,i)
+url10 = paste0(base,year,mid,leagueID,tail10,i)
+
 ESPNGet <- httr::GET(url = url)
 ESPNGet$status_code
 ESPNRaw <- rawToChar(ESPNGet$content)
 ESPNFromJSON2 <- jsonlite::fromJSON(ESPNRaw)
-ESPNFromJSON2 %>% listviewer::jsonedit()
-# jsonlite::write_json(ESPNFromJSON2,"BigURLWeek1.JSON")
+# ESPNFromJSON2 %>% listviewer::jsonedit()
+
+Sys.sleep(time = runif(1,2,4))
+
+ESPNGet10 <- httr::GET(url = url10)
+ESPNGet10$status_code
+ESPNRaw10 <- rawToChar(ESPNGet10$content)
+ESPNFromJSON10 <- jsonlite::fromJSON(ESPNRaw10)
+# ESPNFromJSON10 %>% listviewer::jsonedit()
+
+playerrosterslot = 
+ESPNFromJSON10$teams$roster$entries %>% 
+  map_df(`[`,"lineupSlotId") 
+
+TeamPlayers = 
+ESPNFromJSON$teams$roster$entries %>% map("playerPoolEntry") %>%
+  map_df(~count(.)) 
+
+PlayerTeamDFshort = 
+ESPNFromJSON2$teams %>% select(location, nickname,id) %>%
+  unite(Team, c(location,nickname)) %>%
+  mutate(TeamPlayers = TeamPlayers$n) %>% 
+  uncount(TeamPlayers) %>%
+  mutate(Player = playerperformance$Player %>% unique()) %>%
+  select(-id) %>% 
+  mutate(playerrosterslot = playerrosterslot$lineupSlotId) %>%
+  mutate(scoringPeriodId = i)
+
+PlayerTeamDF = bind_rows(PlayerTeamDF,PlayerTeamDFshort)
+
+}
+
 ```
 
 
 
 
 ```{r}
-ESPNFromJSON2 %>% listviewer::jsonedit()
-ESPNFromJSON2$teams %>% map_df(magrittr::extract,c(""))
-
-
-TeamPlayers = 
-ESPNFromJSON$teams$roster$entries %>% map("playerPoolEntry") %>%
-  map_df(~count(.)) 
-
-PlayerTeamDF = 
-ESPNFromJSON2$teams %>% select(location, nickname,id) %>%
-  unite(Team, c(location,nickname)) %>%
-  mutate(TeamPlayers = TeamPlayers$n) %>% 
-  uncount(TeamPlayers) %>%
-  mutate(Player = playerperformance$Player %>% unique()) %>%
-  select(-id)
 
 PlayerPerformance = 
 playerperformance %>%
-  left_join(PlayerTeamDF, by = "Player") %>%
+  left_join(PlayerTeamDF, by = c("Player","scoringPeriodId")) %>%
   as_tibble()
 
 
@@ -131,15 +138,20 @@ WeeklyEstimates =
 PlayerPerformance %>% 
   filter(nchar(externalId) > 4) %>%
   mutate(statSourceId = if_else(statSourceId==1, "Predicted", "Actual")) %>%
-  select(scoringPeriodId,statSourceId,appliedTotal,Player,Position,Team) %>%
+  select(scoringPeriodId,statSourceId,appliedTotal,Player,Position,Team,playerrosterslot) %>%
   spread(statSourceId, appliedTotal) %>% arrange(Player) %>%
-  filter(!is.na(Actual)) %>%
+  # filter(!is.na(Actual)) %>%
   mutate(ActualMinusPredicted = Actual-Predicted) 
 
 WeeklyEstimates %>%
+  arrange(Player) %>% 
+  filter(Player=="Jordan Reed")
+
+WeeklyEstimates %>%
   arrange(-ActualMinusPredicted) %>%
-  group_by(Team) %>%
-  summarise(MeanDiff = mean(ActualMinusPredicted))
+  group_by(Team, scoringPeriodId) %>%
+  summarise(MeanActualMinusPredicted = mean(ActualMinusPredicted, na.rm = TRUE)) %>%
+  arrange(scoringPeriodId)
 
 ```
 
