@@ -1,0 +1,429 @@
+---
+title: "Exploratory Data Analysis on My 2005 Ford F150"
+author: "Dusty Turner"
+date: "June 12, 2018"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 2
+    theme: journal
+    highlight: monochrome
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+In February 2006, my dad and I split the cost of a 2005 Ford F150.  He probably paid the larger half, but I believe he (and I) have got our money's worth out of it as I still drive it to this day.  Since the purchase, I have tracked the gas milage every time I've filled up the tank.  This tutorial uses this data set to highlight some functions in R to do the following:
+
+- Exploratory Data Analysis
+- Explore Dates in R
+- Build a Linear Model
+- Build a Time Series Prediction
+
+I will echo all the R code, messages, and warnings in this tutorial so you can see what output to expect if you do similar analysis on your own data. 
+
+## Tidyverse
+
+Most commands from this tutorial will be called from the tidyverse.  Thank you [Hadley Wickham](http://hadley.nz/)
+
+```{r message=TRUE, warning=TRUE}
+library(tidyverse)
+```
+
+## A Little About Dates in R
+
+Before we launch into analysisng the data, we should go over a few important facts about dates in R.
+
+There are 3 date/time classes are built in to R  
+- Date   
+- POSIXct   
+- POSIXlt   
+
+### Base R
+
+First, base R can read a string of text and conver it to a date class.  To help it read the date, you must tell R what date format your character string should expect.  Below are several examples.  You can look at all the possible format and codes by running `?strptime` in your R console.  
+
+```{r}
+strptime("October 16, 1984", format = "%B %e, %Y")
+strptime("16 October, 1984", format = "%e %B, %Y")
+strptime("16-- October, 1984", format = "%e-- %B, %Y")
+class(strptime("16-- October, 1984", format = "%e-- %B, %Y"))
+birthday = strptime("16-- October, 1984", format = "%e-- %B, %Y")
+```
+
+As you can see, the `strptime` command has R recognzie your string as a `POSIXlt POSIXt` class.
+
+## lubridate
+
+A second and easier way to have R reconginze dates is to use the `lubridate` package in R.  Thanks again [Hadley](http://hadley.nz/)
+
+```{r}
+library(lubridate)
+```
+
+Using `lubridate` also allows R to read character strings as dates.  However, instead of having to tell R the exact format of your string (which can be difficult), lubridate tries many mothods to recognzie your string.  You simply provide it the order of your month, day, and year in `ymd` format or any combination thereof.  
+
+```{r}
+mdy("June 14, 2018")
+dmy("14 June, 2018")
+dmy("14-- June, 2018")
+class(dmy("14-- June, 2018"))
+```
+
+You'll notice that lubridate creats a `date` class.  To change it into `POSIXlt POSIXt` format, wrap your text with the following code.
+
+```{r}
+class(as.POSIXlt(mdy("June 14, 2018")))
+```
+
+We also need to ensure our date is the correct timezone.  This would be more important if our date had a time included. 
+
+```{r}
+date = as.POSIXlt(dmy("14 June, 2018"))
+date
+date = force_tz(date, tzone = "America/New_York")
+date
+```
+
+When a date vector is of class `as.POSIXlt`, all the information is stored as a list.  You can also extract specific information from the list as well.
+
+```{r}
+date
+unlist(date)
+date$mon
+month(date)
+date$year
+year(date)
+```
+
+You can manipulate these date vectors as well.
+
+```{r}
+date - birthday
+birthday + hours(4)
+birthday + days(4)
+date + years(4) + months(9)
+```
+
+
+## Exploratory Data Analysis
+
+Now, lets look at the dataset
+
+We will use the following functions:
+
+- `head` 
+- `skim` function from the `skimr` package
+
+### Read in Data
+
+```{r}
+truck = read_csv("FordF150.csv")
+```
+
+### Explore
+
+```{r}
+head(truck)
+```
+
+Below the names of each column, r is telling us the data type.  We can already tell we will need to change some characters to dates and others to numeric.  
+
+Its a good practice to ensure all the names of your data are in the same format.  Lets use the `janitor` package and the `clean_names` function.  This ensures that the names are unique, consistant, have no non alpha-numeric characters, and transform spaces into underscores.  
+
+```{r}
+truck =
+truck %>%
+janitor::clean_names(case = "snake")
+
+truck
+```
+
+### Lets explor the data from the `skimr` package.
+
+```{r}
+library(skimr)
+skim(truck)
+```
+
+This is more informative.  The `skim` function shows us the total number of observations and variables, missingness, despcriptive statistics, and a general distribution of the data.
+
+### Filter NAs
+
+There are a couple of `NA`s in the data.  They happen to all be in the same row so we can handle them with the following command
+
+```{r}
+truck = truck %>%
+  filter(!is.na(gallons))
+truck
+```
+
+
+### Transform Variable Types
+
+Based off what we've observed, we need to do the following things:  
+- R currently reads the dates as character vectors. We'll need to `mutate` them so R reads them correctly.  
+- R Reads the TotalMiles column as a character so we'll need to `mutate` the column to numeric as well.
+- The notes column designates if there was uncertainty in the data collection.  I'll `mutate` to change this to a numeric 1/0 indicator.
+
+```{r}
+
+truck = truck %>%
+  mutate(fill_up_date = force_tz(dmy(fill_up_date), "America/New_York")) %>%
+  mutate(finish_tank_date = force_tz(dmy(finish_tank_date), "America/New_York")) %>%
+  mutate(total_miles = as.numeric(total_miles)) %>%
+  mutate(notes = ifelse(is.na(notes),0,1))
+truck
+```
+
+### Lets look at some descriptive statistics
+
+Largest Fill Up
+
+```{r}
+truck %>%
+  filter(gallons > 32) %>%
+  arrange(desc(gallons)) %>% 
+  print(n = Inf)
+```
+
+Most MPG
+
+```{r}
+truck %>%
+  arrange(desc(mpg)) %>% 
+  print(n = 20)
+```
+
+Least MPG
+
+```{r}
+truck %>%
+  arrange(mpg) %>% 
+  print(n = 20)
+```
+
+View My Travel By Fillup
+
+```{r}
+truck %>%
+  ggplot(aes(x = fill_up_date, y = total_miles)) +
+  geom_segment(aes(x=fill_up_date, xend=finish_tank_date, yend = total_miles)) +
+  ggtitle("Distance vs Time") + labs(x = "Fill Up Date", y = "Total Miles")
+```
+
+Since I placed a note in my data when I was uncertain of the miles filled up, lets color each observation by uncertainty.  
+
+```{r}
+truck %>%
+  ggplot(aes(x = fill_up_date, y = mpg)) +
+  geom_point(aes(color = as.factor(notes)))+
+  geom_line() +
+  ggtitle("MPG vs Time") + labs(x = "Fill Up Date", y = "MPG")
+```
+
+Also, to highlight an interactive tool, we'll use the plotly library.  This adds the ability to interact with the graphics in many ways which you can explore below.  To do this, simply wrap your ggplot object in the `ggplotly command`
+
+```{r}
+library(plotly)
+plot = 
+truck %>%
+  ggplot(aes(x = fill_up_date, y = total_miles)) +
+  geom_segment(aes(x=fill_up_date, xend=finish_tank_date, yend = total_miles)) +
+  ggtitle("Distance vs Time")
+
+ggplotly(plot)
+```
+
+## Linear Model
+
+We might also find it interesting to determine what factors impact the miles per gallon.  This skips the iterative model building process, but its interesting to see what two factors have the most impact.
+
+```{r}
+options(scipen = 999) ## to remove scientific notation
+lin.mod = lm(mpg~tank_miles+total_miles,data = truck)
+summary(lin.mod)
+```
+
+As you can see, the more miles I drove on a tank, the more miles per gallon I should expect.  For every extra mile I drive on a tank of gas, I should expect to receive about ~.01 more miles per gallon.  
+
+Also, for every mile I've driven total on my car, I should expect to receive ~.00001 miles per gallon less.  My layman's interpretation of this is tha tas my truck gets older, it gets worse gas mileage on average.  
+
+For completeness's sake, we should look at the residuals to assess our assumptions for linear regression:
+
+```{r}
+library(car)
+residualPlots(lin.mod, type = "rstudent")
+qqPlot(lin.mod, distribution = "norm")
+```
+
+As you can see from our residual plots, we're pretty happy about heteroscedasticity and normality, but not so much linearity.  Lets apply a transformation to the data. 
+
+```{r}
+options(scipen = 999) ## to remove scientific notation
+lin.mod = lm(mpg~poly(tank_miles,2)+total_miles,data = truck)
+summary(lin.mod)
+residualPlots(lin.mod)
+qqPlot(lin.mod)
+```
+As you can see, our linearity assumption is now satisfied, however, our since the transformation uses orthogonal polynomials, we lose a little interpretability.  We could us the raw data, however, our predictor loses significance.  
+
+
+## Time Series
+
+Since the miles per gallon data was taken on my truck over time, lets to some time series analysis.  First, we need to get the data in the correct format.  
+
+What I'll do is rearrange the data so I have a monthly total of gallons I've added to my truck.  
+
+To do this, I will need to extract the month and year from the dates.
+
+```{r}
+tstruck = truck %>%
+  mutate(month = month(fill_up_date)) %>%
+  mutate(year = year(fill_up_date))
+tstruck %>% select(month, year, gallons)
+```
+
+Next I'll group the data by month and year and summarize the gallons over each month I've owned the pickup.  
+
+```{r}
+tstruck = tstruck %>%
+  group_by(month, year) %>%
+  summarise(gallons = sum(gallons)) %>%
+  arrange(year, month)
+tstruck
+```
+
+What you may notice is that I didn't fill up my pick up every month.  This will cause an issue when it comes to time series analysis because I need an observation for every month.  I need to add a `0` for every month that is missing.  Here is how I will accomplish this task.
+
+First, I'll create a tibble of months from when we purchased the pick up until now. I'll extract out the month and year just like my origional dataset.  
+
+```{r}
+startday = mdy("2-2-2006")
+endday = mdy("6-2-2018")
+helper = tibble(date = startday + months(0:149)) %>%
+  mutate(month = month(date)) %>%
+  mutate(year = year(date))
+helper
+```
+
+Next, I'll do a `full_join` of the helper tibble I created with my origional data.  
+
+```{r}
+expanded = full_join(helper, tstruck)
+expanded
+```
+
+Notice how this creates a line for every month, but where I was missing gallons data, I have an `NA`.
+
+I will fix this by replacing the `NA`s with `0`s.  
+
+```{r}
+expanded =  expanded %>%
+  mutate(gallons = ifelse(is.na(gallons),0,gallons)) %>%
+  select(gallons)
+expanded
+```
+
+Now that I have this in the correct format, I need to make it a time series `ts` object.
+
+
+```{r}
+truckts = expanded  %>%
+  ts(start = 06, frequency = 12) 
+truckts
+class(truckts)
+```
+
+### Stationary
+
+One of the assumptions that I must make is that my time series is stationary.  The Dicky-Fuller (ADF) test (from the `tsries` package), tests the null hypothesis that the data is non-stationary.  The alternative hypothesis is that the data is staitonary.
+
+```{r}
+library(tseries)
+truckts %>% adf.test()
+```
+
+From the results, you can see that a low p-value rejects the null hypothesis and allows us to conclude that the data is stationary.  Assumption met.
+
+Next, we can look at the seasonality and trend decomposition of our time series data.  We'll do this using the `forecast` package from [Rob Hyndman](https://robjhyndman.com/)
+
+```{r}
+library(forecast)
+truckts %>%
+  decompose() %>%
+  autoplot()
+```
+
+You can see below that there is a season aspect and trent component aspect that fluctuates over time.
+
+Because of this, we'll use the Holt-Winters method to capture seasonality.  
+
+```{r}
+mod = truckts %>%
+  hw(h=12*13, seasonal = "additive") 
+summary(mod)
+```
+
+It might be interesting to know when my truck will go over 200,000 miles.
+
+Lets extract the predictions.
+
+```{r}
+futurevec = ((mod$upper[,2]-mod$lower[,2])/2)+mod$lower[,2]
+uppervec = mod$upper[,1]
+futurevec
+uppervec
+```
+
+Then lets create a tibble of dates that we can join our future predictions to.
+
+```{r}
+startday = mdy("6-2-2018")
+helper = tibble(date = startday + months(1:length(futurevec))) %>%
+  mutate(month = month(date)) %>%
+  mutate(year = year(date))
+helper
+```
+
+Now join the prediction.
+
+```{r}
+predictedmiles = data.frame(helper, futurevec = futurevec, uppervec = uppervec) %>%
+  select(date, futurevec, uppervec)
+head(predictedmiles)
+```
+
+Lets accumulate all the miles over the future months.
+
+```{r}
+predictedmiles = predictedmiles %>%
+  mutate(accumulatedexpected = cumsum(futurevec), accumulatedearliest = cumsum(uppervec))
+head(predictedmiles)
+```
+
+Now, lets determine the total miles my truck currently has on it.
+
+```{r}
+currentmiles = truck %>%
+  summarise(currentmiles = max(total_miles))
+currentmiles$currentmiles
+```
+
+Now to add in the current miles:
+
+```{r}
+predictedmiles %>%
+  mutate(predictedexpected = accumulatedexpected+currentmiles$currentmiles) %>%
+  mutate(predictedupperestiment = accumulatedearliest+currentmiles$currentmiles) %>%
+  select(date, expected = predictedexpected, earliest = predictedupperestiment) %>%
+  filter(earliest>199000&earliest<200500 | expected>199000&expected<200500)
+```
+
+It looks like I'll roll over 200,000 miles sometime in the year 2029 -- but possibly as early as 2023.  Apparently my recent driving habits indicate a much slower later 200k rollover than how I started driving.   

@@ -142,7 +142,7 @@ This chart shows highlights some intersting points.
 
 - The worse miles per tank and gallons per fill up were in Texas when my dad still possessed the truck (and doesn't live as close to the edge as I do).
 
-### Time Spent in Each Location
+### Time Spent in Each Location I've Lived
 
 How much time did I spend in each location?  How many miles did I drive at each place?
 
@@ -211,6 +211,48 @@ From this plot, you can see several take aways:
 - There is also a clear drop off in the rate of fill ups in NY.  
 - There are also 4 periods of times with no fill ups.  Two of them were on either side of Hawaii while my truck was getting shipped.  The other two are both my deployments; with one fill up mid deployment while in New Mexico.  Thanks Jill!
   
+### Time Between Fillups
+
+How often did a tank of gas last?
+
+```{r}
+truck %>%
+  select(FillUpDate,FinishTankDate) %>%
+  mutate(DaysBetweenFillUps = FinishTankDate-FillUpDate) %>%
+  group_by(DaysBetweenFillUps)%>%
+  count() -> FillUps
+
+FillUps %>%
+  arrange(desc(n)) %>%
+  ungroup() %>%
+  top_n(5,n) %>%
+  kable() %>%
+  kable_styling("striped", full_width = F)
+```
+
+It appears the most often days between fill ups was a tie for both 1 day and 8 days.
+
+Lets Visualize it:
+
+```{r}
+FillUps %>%
+  ggplot(aes(x=DaysBetweenFillUps,y=n)) +
+  geom_col() +
+  labs(x="Days Between Fill Ups", y="Number of Fill Ups", title = "How Many Days Did a Tank of Gas Last?")
+```
+
+
+```{r}
+FillUps %>%
+  arrange(desc(DaysBetweenFillUps)) %>%
+  ungroup() %>%
+  top_n(5,DaysBetweenFillUps) %>%
+  kable() %>%
+  kable_styling("striped", full_width = F)
+```
+
+Also of note, the longest time between fill ups was 120 days.  This must have been during one of my deployments.  
+
 ### More Gas on Certain Days?
 
 I also wonder if I happen to have filled up the tank more often on one day than another.
