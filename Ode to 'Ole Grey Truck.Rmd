@@ -17,7 +17,19 @@ Well, maybe I'm taking too much historical liscence, but man's affinity for thei
 
 At the age of 21, my dad and I split the cost of a 2005 Ford F150.  The odometer read ~24,000 miles and it set us back ~$20,000.  
 
-I've been with this truck for 14 years - longer than I've known my wife.  Its been with me from Texas to New York to Georgia to Missouri to Hawaii to Missouri to New Mexico to Ohio to New York to Virginia.  Tragically, on the drive from New York to Virginia, the engine developed a tremendous rattling noise and a violent shake.  Unbeknownst to me, it developed an oil leak sometime in the summer of '19 and the 70 mph roads were too much for it to handle.  Just short of its 200,000th mile I laid it to rests in Fairfax Station, Virginia.  It lived long enough to meet its successor, Ole Grey Truck II.  
+<center>
+<img src="oldpickupedit.jpg" alt="OldTruck" width="500">
+<!-- ![](oldpickupedit.jpg) -->
+</center>
+
+
+I've been with this truck for 14 years - longer than I've known my wife.  Its been with me from Texas to New York to Georgia to Missouri to Hawaii to Missouri to New Mexico to Ohio to New York to Virginia.  Tragically, on the drive from New York to Virginia, the engine developed a tremendous rattling noise and a violent shake.  Unbeknownst to me, it developed an oil leak sometime in the summer of '19 and the 70 mph roads were too much for it to handle.  Just short of its 200,000th mile, I laid it to rests in Fairfax Station, Virginia.  It lived long enough to meet its successor, Ole Grey Truck II.  
+
+<center>
+<img src="newtruckedit.jpg" alt="NewTruck" width="400">
+<!-- <img src="newtruckedit.jpg" alt="NewTruck" width="500" height="600"> -->
+<!-- ![](newtruckedit.jpg) -->
+</center>
 
 The following is a (toungue-in-cheek) R style ode to my old friend.  Long live Ole Grey!
 
@@ -102,7 +114,7 @@ truck %>%
 
 Lets look at the spread of the data a little closer to get a feel for the distribution of gallons per fill up, miles per gallon, and miles per tank of gas.
 
-```{r}
+```{r, fig.align='center'}
 truck %>%
   gather(Measurement, Value, -FillUpDate, -FinishTankDate, -Location) %>%
   filter(Measurement != "TotalMiles") %>%
@@ -167,7 +179,7 @@ Interesting Notes:
 
 Lets look at this visually.
 
-```{r}
+```{r, fig.align='center'}
 truck %>% 
   group_by(Location) %>%
   summarise(Arrive_Location = min(FillUpDate),
@@ -194,7 +206,7 @@ A picture (graph) is worth 1000 words.
 
 ### Rate of Miles Over Time
 
-```{r}
+```{r, fig.align='center'}
 truck %>%
   ggplot(aes(x=FillUpDate,y=TotalMiles,color = Location) ) +
   geom_point() +
@@ -234,7 +246,7 @@ It appears the most often days between fill ups was a tie for both 1 day and 8 d
 
 Lets Visualize it:
 
-```{r}
+```{r, fig.align='center'}
 FillUps %>%
   ggplot(aes(x=DaysBetweenFillUps,y=n)) +
   geom_col() +
@@ -257,7 +269,7 @@ Also of note, the longest time between fill ups was 120 days.  This must have be
 
 I also wonder if I happen to have filled up the tank more often on one day than another.
 
-```{r}
+```{r, fig.align='center'}
 truck %>%
   mutate(Weekday = weekdays(FillUpDate)) %>%
   select(TankMiles,Location,Weekday,FillUpDate) %>%
@@ -319,7 +331,7 @@ It turns out that there is a 53.11% chance that we'd see what happened or see so
 
 The map below shows dates in which I filled up my truck with gasoline.  The darker green indicates more gallons -- the lighter indicates fewer gallons.  The dark dates mean I did not fill up with gasoline on that date.  
 
-```{r}
+```{r, fig.width=10, fig.align='center'}
 truck %>%
   complete(FillUpDate = seq.Date(min(FillUpDate), max(FillUpDate), by="day")) %>%
   mutate(monthweek = week(FillUpDate)) %>%
@@ -341,5 +353,12 @@ I'll admit, its hard to glean anything from this heatmap.... But I spent a lot o
 # Feedback welcome
 
 As always, I do this blog to learn new things, hopefully teach others from my experience, and hopefully receive (respectful and helpful) feedback.  
+
+Here's a picture of old and new meeting!
+
+<center>
+<img src="newtruckedit.jpg" alt="bothedit" width="400">
+</center>
+
 
 Please leave your thoughts below!!
